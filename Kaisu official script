@@ -1,0 +1,196 @@
+-- Очистка старых интерфейсов
+local oldGui = game:GetService("CoreGui"):FindFirstChild("KaisuKeySystem") or game:GetService("CoreGui"):FindFirstChild("DeltaDisasterTrollMenu")
+if oldGui then oldGui:Destroy() end
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+local GET_KEY_LINK = "https://lootlabs.com" -- Твоя рекламная ссылка
+local SECRET_SALT = "KaisuOfficialTrollHub2026" -- Должно совпадать с генератором ключей!
+
+-- Функция вычисления хэша на стороне клиента
+local function getExpectedHash()
+    local dateTable = os.date("!*t")
+    local str = string.format("%s_%d_%d_%d", SECRET_SALT, dateTable.day, dateTable.month, dateTable.year)
+    local hash = 0
+    for i = 1, #str do
+        hash = hash + string.byte(str, i)
+        hash = bit32.band(hash + bit32.lshift(hash, 10), 0xFFFFFFFF)
+        hash = bit32.bxor(hash, bit32.rshift(hash, 6))
+    end
+    hash = hash + bit32.lshift(hash, 3)
+    hash = bit32.bxor(hash, bit32.rshift(hash, 11))
+    hash = bit32.band(hash + bit32.lshift(hash, 15), 0xFFFFFFFF)
+    return "Kaisu_" .. string.format("%08x", hash)
+end
+
+-- Функция создания красивого всплывающего уведомления (Notification)
+local function showNotification(titleText, descText)
+    local NotifGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+    NotifGui.Name = "KaisuNotification"
+    
+    local Frame = Instance.new("Frame", NotifGui)
+    Frame.Size = UDim2.new(0, 260, 0, 70)
+    Frame.Position = UDim2.new(1, 300, 1, -90) -- Начинает за пределами экрана справа
+    Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    Frame.BorderSizePixel = 0
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
+    
+    -- Светящаяся левая граница
+    local Line = Instance.new("Frame", Frame)
+    Line.Size = UDim2.new(0, 4, 1, 0)
+    Line.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    Line.BorderSizePixel = 0
+    Instance.new("UICorner", Line).CornerRadius = UDim.new(0, 8)
+    
+    local Icon = Instance.new("TextLabel", Frame)
+    Icon.Size = UDim2.new(0, 40, 1, 0)
+    Icon.Position = UDim2.new(0, 10, 0, 0)
+    Icon.BackgroundTransparency = 1
+    Icon.Font = Enum.Font.GothamBold
+    Icon.Text = "🛡️"
+    Icon.TextSize = 22
+    
+    local Title = Instance.new("TextLabel", Frame)
+    Title.Size = UDim2.new(1, -60, 0, 25)
+    Title.Position = UDim2.new(0, 50, 0, 10)
+    Title.BackgroundTransparency = 1
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = titleText
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 13
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local Desc = Instance.new("TextLabel", Frame)
+    Desc.Size = UDim2.new(1, -60, 0, 25)
+    Desc.Position = UDim2.new(0, 50, 0, 30)
+    Desc.BackgroundTransparency = 1
+    Desc.Font = Enum.Font.Gotham
+    Desc.Text = descText
+    Desc.TextColor3 = Color3.fromRGB(180, 180, 190)
+    Desc.TextSize = 11
+    Desc.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Анимация плавного появления (выезжает справа налево)
+    Frame:TweenPosition(UDim2.new(1, -280, 1, -90), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.5, true)
+    
+    -- Плавное исчезновение через 4 секунды
+    task.delay(4, function()
+        Frame:TweenPosition(UDim2.new(1, 300, 1, -90), Enum.EasingDirection.In, Enum.EasingStyle.Quart, 0.5, true, function()
+            NotifGui:Destroy()
+        end)
+    end)
+end
+
+-- Создание графического интерфейса ключа
+local KeyGui = Instance.new("ScreenGui")
+KeyGui.Name = "KaisuKeySystem"
+KeyGui.Parent = game:GetService("CoreGui")
+KeyGui.ResetOnSpawn = false
+
+local KeyFrame = Instance.new("Frame", KeyGui)
+KeyFrame.Size = UDim2.new(0, 320, 0, 200)
+KeyFrame.Position = UDim2.new(0.5, -160, 0.4, -100)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+KeyFrame.Active = true KeyFrame.Draggable = true
+Instance.new("UICorner", KeyFrame).CornerRadius = UDim.new(0, 12)
+
+local KeyTitle = Instance.new("TextLabel", KeyFrame)
+KeyTitle.Size = UDim2.new(1, 0, 0, 45)
+KeyTitle.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+KeyTitle.Font = Enum.Font.GothamBold
+KeyTitle.Text = "🔑 KAISU KEY SYSTEM"
+KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyTitle.TextSize = 13
+Instance.new("UICorner", KeyTitle).CornerRadius = UDim.new(0, 12)
+
+local TextBox = Instance.new("TextBox", KeyFrame)
+TextBox.Size = UDim2.new(0.9, 0, 0, 38)
+TextBox.Position = UDim2.new(0.05, 0, 0.35, 0)
+TextBox.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TextBox.Font = Enum.Font.Gotham
+TextBox.PlaceholderText = "Вставьте сегодняшний хэш-ключ..."
+TextBox.Text = "" TextBox.TextColor3 = Color3.fromRGB(255, 255, 255) TextBox.TextSize = 13
+Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 6)
+
+local CheckBtn = Instance.new("TextButton", KeyFrame)
+CheckBtn.Size = UDim2.new(0.42, 0, 0, 38)
+CheckBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
+CheckBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+CheckBtn.Font = Enum.Font.GothamBold
+CheckBtn.Text = "Проверить" CheckBtn.TextColor3 = Color3.fromRGB(255, 255, 255) CheckBtn.TextSize = 13
+Instance.new("UICorner", CheckBtn).CornerRadius = UDim.new(0, 6)
+
+local GetBtn = Instance.new("TextButton", KeyFrame)
+GetBtn.Size = UDim2.new(0.42, 0, 0, 38)
+GetBtn.Position = UDim2.new(0.53, 0, 0.65, 0)
+GetBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+GetBtn.Font = Enum.Font.GothamBold
+GetBtn.Text = "Получить ключ" GetBtn.TextColor3 = Color3.fromRGB(200, 200, 200) GetBtn.TextSize = 13
+Instance.new("UICorner", GetBtn).CornerRadius = UDim.new(0, 6)
+
+GetBtn.MouseButton1Click:Connect(function()
+    if setclipboard then setclipboard(GET_KEY_LINK) GetBtn.Text = "Скопировано!" task.wait(1.5) GetBtn.Text = "Получить ключ" else GetBtn.Text = "Нет буфера" end
+end)
+
+-- ФУНКЦИЯ ЗАПУСКА ОСНОВНОГО ХАБА KAISU
+local function loadMainScript()
+    KeyGui:Destroy()
+    
+    -- Вызов стильного уведомления
+    showNotification("Успешная авторизация!", "Привет, " .. localPlayer.Name .. "! Скрипт загружен.")
+    
+    _G.NDSTrollConfig = {
+        tornadoEnabled = false, tornadoRadius = 50, fanEnabled = false, fanRadius = 30,
+        flingEnabled = false, killAuraEnabled = false, voidTeleport = false,
+        freezeEnabled = false, blindEnabled = false, serverNuke = false
+    }
+    local config = _G.NDSTrollConfig
+
+    local MainGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+    MainGui.Name = "DeltaDisasterTrollMenu"
+    
+    local MainFrame = Instance.new("Frame", MainGui)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    MainFrame.Position = UDim2.new(0.3, 0, 0.25, 0)
+    MainFrame.Size = UDim2.new(0, 420, 0, 380)
+    MainFrame.Active = true
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
+    -- Перетаскивание (UIS Dragging)
+    local dragging, dragInput, dragStart, startPos
+    MainFrame.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true dragStart = input.Position startPos = MainFrame.Position input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
+    MainFrame.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
+
+    -- Радужный заголовок Kaisu official script
+    local Title = Instance.new("TextLabel", MainFrame)
+    Title.Size = UDim2.new(1, 0, 0, 45)
+    Title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "  👑 Kaisu official script"
+    Title.TextSize = 15
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 12)
+
+    task.spawn(function()
+        local speed, counter = 0.1, 0
+        while task.wait(0.01) do if Title and Title.Parent then counter = counter + speed Title.TextColor3 = Color3.fromHSV(math.sin(counter * 0.05) * 0.5 + 0.5, 0.8, 1) else break end end
+    end)
+
+    local MinimizeBtn = Instance.new("TextButton", Title)
+    MinimizeBtn.BackgroundTransparency = 1 MinimizeBtn.Position = UDim2.new(1, -45, 0, 0) MinimizeBtn.Size = UDim2.new(0, 45, 1, 0) MinimizeBtn.Font = Enum.Font.GothamBold MinimizeBtn.Text = "—" MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200) MinimizeBtn.TextSize = 18
+
+    local OpenBtn = Instance.new("TextButton", MainGui)
+    OpenBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40) OpenBtn.Position = UDim2.new(0.02, 0, 0.2, 0) OpenBtn.Size = UDim2.new(0, 55, 0, 55) OpenBtn.Font = Enum.Font.GothamBold OpenBtn.Text = "😈" OpenBtn.TextColor3 = Color3.fromRGB(255, 255, 255) OpenBtn.TextSize = 26 OpenBtn.Visible = false Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 28)
+
+    MinimizeBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false OpenBtn.Visible = true end)
+    OpenBtn.MouseButton1Click:Connect(function() MainFrame.Visible = true OpenBtn.Visible = false end)
+
+    local TabBar = Instance.new("Frame", MainFrame) TabBar.Position = UDim2.new(0, 5, 0, 50) TabBar.Size = UDim2.new(0, 110, 1, -60) TabBar.BackgroundTransparency = 1
+    Instance.new("UIListLayout", TabBar).Padding = UDim.new(0, 5)
+    local PagesContainer = Instance.new("Frame", MainFrame) PagesContainer.Position = UDim2.new(0, 120, 0, 50) PagesContainer.Size = UDim2.new(1, -125, 1, -60) PagesContainer.BackgroundTransparency = 1
+
+    local pages = {}
+    local function createPage(name) local Scroll = Instance.new("ScrollingFrame", PagesContainer) Scroll.Size = UDim2.new(1, 0, 1, 0) Scroll.BackgroundTransparency = 1 Scroll.CanvasSize = UDim2.new(0, 0, 0, 400) Scroll.ScrollBarThickness = 2 Scroll.Visible = false Instance.new("UIListLayout", Scroll).Padding = UDim.new(0, 10)local TabBtn = Instance.new("TextButton", TabBar) TabBtn.Size = UDim2.new(1, 0, 0, 35) TabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45) TabBtn.Font = Enum.Font.GothamBold TabBtn.Text = name TabBtn.TextColor3 = Color3.fromRGB(180, 180, 180) TabBtn.TextSize = 12 Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)TabBtn.MouseButton1Click:Connect(function() for _, p in pairs(pages) do p.Visible = false end Scroll.Visible = true for _, b in ipairs(TabBar:GetChildren()) do if b:IsA("TextButton") then b.TextColor3 = Color3.fromRGB(180, 180, 180) end end TabBtn.TextColor3 = Color3.fromRGB(0, 150, 255) end)pages[name] = Scroll return Scrollendlocal function createToggle(page, text, callback)local Frame = Instance.new("Frame", page) Frame.Size = UDim2.new(1, -10, 0, 40) Frame.BackgroundTransparency = 1local Label = Instance.new("TextLabel", Frame) Label.Size = UDim2.new(0.65, 0, 1, 0) Label.BackgroundTransparency = 1 Label.Font = Enum.Font.Gotham Label.Text = text Label.TextColor3 = Color3.fromRGB(220, 220, 220) Label.TextSize = 13 Label.TextXAlignment = Enum.TextXAlignment.Leftlocal Button = Instance.new("TextButton", Frame) Button.Size = UDim2.new(0.3, 0, 0.8, 0) Button.Position = UDim2.new(0.7, 0, 0.1, 0) Button.BackgroundColor3 = Color3.fromRGB(50, 50, 60) Button.Font = Enum.Font.GothamBold Button.Text = "ВЫКЛ" Button.TextColor3 = Color3.fromRGB(255, 100, 100) Button.TextSize = 11 Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 6)local enabled = false Button.MouseButton1Click:Connect(function() enabled = not enabled Button.Text = enabled and "ВКЛ" or "ВЫКЛ" Button.BackgroundColor3 = enabled and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(50, 50, 60) Button.TextColor3 = enabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 100, 100) callback(enabled) end)endlocal function createSlider(page, text, min, max, default, callback)local Frame = Instance.new("Frame", page) Frame.Size = UDim2.new(1, -10, 0, 45) Frame.BackgroundTransparency = 1local Label = Instance.new("TextLabel", Frame) Label.Size = UDim2.new(1, 0, 0, 18) Label.BackgroundTransparency = 1 Label.Font = Enum.Font.Gotham Label.Text = text .. ": " .. default Label.TextColor3 = Color3.fromRGB(180, 180, 180) Label.TextSize = 12 Label.TextXAlignment = Enum.TextXAlignment.Leftlocal SliderBg = Instance.new("Frame", Frame) SliderBg.Size = UDim2.new(1, 0, 0, 6) SliderBg.Position = UDim2.new(0, 0, 0, 22) SliderBg.BackgroundColor3 = Color3.fromRGB(45, 45, 55) Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(0, 3)local SliderFill = Instance.new("Frame", SliderBg) local fillPercent = (default - min) / (max - min) SliderFill.Size = UDim2.new(fillPercent, 0, 1, 0) SliderFill.BackgroundColor3 = Color3.fromRGB(0, 150, 255) Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(0, 3)local SliderBtn = Instance.new("TextButton", SliderBg) SliderBtn.Size = UDim2.new(0, 14, 0, 14) SliderBtn.Position = UDim2.new(fillPercent, -7, 0, -4) SliderBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) SliderBtn.Text = "" Instance.new("UICorner", SliderBtn).CornerRadius = UDim.new(0, 7)local sDragging = false SliderBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then sDragging = true end end)game:GetService("UserInputService").InputChanged:Connect(function(i) if sDragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then local pct = math.clamp((i.Position.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X, 0, 1) SliderFill.Size = UDim2.new(pct, 0, 1, 0) SliderBtn.Position = UDim2.new(pct, -7, 0, -4) local val = math.round(min + (pct * (max - min))) Label.Text = text .. ": " .. val callback(val) end end)game:GetService("UserInputService").InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then sDragging = false end end)endlocal pagePhysics = createPage("🌪️ Ветер")local pageTroll = createPage("😈 Троллинг")pages["🌪️ Ветер"].Visible = truecreateToggle(pagePhysics, "Включить Вентилятор", function(v) config.fanEnabled = v end)createSlider(pagePhysics, "Радиус Вентилятора", 10, 100, config.fanRadius, function(v) config.fanRadius = v end)createToggle(pagePhysics, "Включить Торнадо", function(v) config.tornadoEnabled = v end)createSlider(pagePhysics, "Радиус Торнадо", 10, 150, config.tornadoRadius, function(v) config.tornadoRadius = v end)createToggle(pageTroll, "Ультра-Флинг (Космос)", function(v) config.flingEnabled = v end)createToggle(pageTroll, "Килл-Аура (Рядом)", function(v) config.killAuraEnabled = v end)createToggle(pageTroll, "В пустоту (Радиус)", function(v) config.voidTeleport = v end)createToggle(pageTroll, "Заморозить сервер", function(v) config.freezeEnabled = v end)createToggle(pageTroll, "Ослепить игроков", function(v) config.blindEnabled = v end)createToggle(pageTroll, "Ядерный взрыв карты", function(v) config.serverNuke = v end)-- ФИЗИЧЕСКИЙ ЦИКЛ ПОТОКОВtask.spawn(function()while task.wait(0.03) doif not MainFrame or not MainFrame.Parent then break endlocal myChar = localPlayer.Character local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")if not myRoot then continue endif config.flingEnabled then myRoot.AngularVelocity = Vector3.new(0, 99999, 0) myRoot.Velocity = myRoot.Velocity + Vector3.new(0, 0.1, 0) endfor _, player in ipairs(Players:GetPlayers()) doif player ~= localPlayer and player.Character thenlocal tRoot = player.Character:FindFirstChild("HumanoidRootPart")local tHum = player.Character:FindFirstChildOfClass("Humanoid")if tRoot and tHum and tHum.Health > 0 thenlocal dist = (tRoot.Position - myRoot.Position).Magnitudeif config.killAuraEnabled and dist <= 15 then tHum.Health = 0 endif config.voidTeleport and dist <= 30 then tRoot.CFrame = CFrame.new(tRoot.Position.X, -500, tRoot.Position.Z) endif config.blindEnabled and dist <= 40 and not tRoot:FindFirstChild("TrollSmoke") then local smoke = Instance.new("Smoke", tRoot) smoke.Name = "TrollSmoke" smoke.Size = 25 smoke.Opacity = 1 elseif not config.blindEnabled and tRoot:FindFirstChild("TrollSmoke") then tRoot.TrollSmoke:Destroy() endif config.tornadoEnabled and dist <= config.tornadoRadius then local dir = Vector3.new(myRoot.Position.X - tRoot.Position.X, 0, myRoot.Position.Z - tRoot.Position.Z).Unit local spin = Vector3.new(-dir.Z, 0, dir.X).Unit tRoot.Velocity = (dir * 35) + (spin * 25) + Vector3.new(0, 30, 0)elseif config.fanEnabled and dist <= config.fanRadius then local look = myRoot.CFrame.LookVector if look:Dot((tRoot.Position - myRoot.Position).Unit) > 0.7 then tRoot.Velocity = look * 150 + Vector3.new(0, 25, 0) end endendendendif config.tornadoEnabled or config.fanEnabled or config.serverNuke or config.freezeEnabled thenlocal rSize = math.max(config.tornadoRadius, config.fanRadius, 80)local reg = Region3.new(myRoot.Position - Vector3.new(rSize, 30, rSize), myRoot.Position + Vector3.new(rSize, 60, rSize))for _, part in ipairs(workspace:FindPartsInRegion3(reg, nil, 120)) doif part:IsA("BasePart") and part.Name ~= "Baseplate" and not part:IsDescendantOf(myChar) thenif config.serverNuke then part.Anchored = false part.Velocity = Vector3.new(math.random(-100, 100), math.random(50, 150), math.random(-100, 100))elseif config.freezeEnabled then part.Anchored = true part.Color = Color3.fromRGB(0, 255, 255)elseif config.tornadoEnabled and (part.Position - myRoot.Position).Magnitude <= config.tornadoRadius then part.Anchored = false local d = Vector3.new(myRoot.Position.X - part.Position.X, 0, part.Position.Z - part.Position.Z).Unit local s = Vector3.new(-d.Z, 0, d.X).Unit part.Velocity = (d * 40) + (s * 30) + Vector3.new(0, 35, 0) endendendendendend)end
